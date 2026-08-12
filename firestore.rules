@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Anyone using the app can READ server list & settings, but only
+    // a logged-in admin (you, via the admin panel) can WRITE changes.
+    match /servers/{serverId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /activeSessions/{sessionId} {
+      allow read: if request.auth != null;
+      allow write: if true; // app increments/decrements connection counts
+    }
+  }
+}
