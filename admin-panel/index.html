@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MBBS VPN — Admin Panel</title>
+<style>
+  :root{
+    --primary:#2D5BFF; --accent:#00C8A0; --bg:#F5F7FB; --card:#FFFFFF;
+    --text:#1A1D29; --muted:#6B7280;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text);
+  }
+  header{
+    background:linear-gradient(135deg,var(--primary),var(--accent));
+    color:#fff; padding:24px 20px 32px; border-radius:0 0 24px 24px;
+  }
+  header h1{margin:0 0 4px; font-size:22px;}
+  header p{margin:0; opacity:.9; font-size:13px;}
+  .container{max-width:640px; margin:0 auto; padding:16px;}
+  .card{
+    background:var(--card); border-radius:16px; padding:18px;
+    margin-bottom:16px; box-shadow:0 2px 10px rgba(0,0,0,.05);
+  }
+  .card h2{margin:0 0 12px; font-size:16px;}
+  .row{display:flex; gap:8px; margin-bottom:10px;}
+  input, select{
+    width:100%; padding:10px 12px; border:1px solid #E3E6EE; border-radius:10px;
+    font-size:14px; background:#FAFBFF;
+  }
+  label{font-size:12px; color:var(--muted); display:block; margin-bottom:4px;}
+  .field{flex:1;}
+  button{
+    background:var(--primary); color:#fff; border:none; border-radius:10px;
+    padding:12px 16px; font-size:14px; font-weight:600; cursor:pointer; width:100%;
+  }
+  button.secondary{background:#EDEFF7; color:var(--text);}
+  button.danger{background:#FF4757;}
+  .server-item{
+    border:1px solid #EEF0F6; border-radius:12px; padding:12px; margin-bottom:10px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .server-item .info b{display:block; font-size:14px;}
+  .server-item .info span{font-size:12px; color:var(--muted);}
+  .badge{
+    font-size:10px; padding:2px 8px; border-radius:6px; background:var(--accent); color:#fff;
+    margin-left:6px;
+  }
+  .toggle{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
+  .switch{position:relative; width:44px; height:24px;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider{position:absolute; cursor:pointer; inset:0; background:#ccc; border-radius:24px; transition:.2s;}
+  .slider:before{content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s;}
+  input:checked + .slider{background:var(--primary);}
+  input:checked + .slider:before{transform:translateX(20px);}
+  .actions{display:flex; gap:6px;}
+  .actions button{width:auto; padding:6px 10px; font-size:12px;}
+  #loginScreen{max-width:340px; margin:80px auto; text-align:center;}
+  .muted{color:var(--muted); font-size:12px; margin-top:8px;}
+  .stat{display:flex; justify-content:space-between; padding:6px 0; font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h2>Admin Login</h2>
+  <div class="card">
+    <div class="row"><div class="field"><label>Email</label><input id="loginEmail" type="email"></div></div>
+    <div class="row"><div class="field"><label>Password</label><input id="loginPass" type="password"></div></div>
+    <button onclick="doLogin()">Log In</button>
+    <p class="muted">Create this user once in Firebase Console → Authentication → Add user.</p>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>🎓 MBBS VPN — Admin Panel</h1>
+    <p>Manage servers, ads and users — no coding needed</p>
+  </header>
+
+  <div class="container">
+
+    <div class="card">
+      <h2>App-wide controls</h2>
+      <div class="toggle">
+        <span>Ads enabled in app</span>
+        <label class="switch"><input type="checkbox" id="adsEnabled" onchange="saveSettings()"><span class="slider"></span></label>
+      </div>
+      <div class="toggle">
+        <span>Maintenance mode</span>
+        <label class="switch"><input type="checkbox" id="maintenanceMode" onchange="saveSettings()"><span class="slider"></span></label>
+      </div>
+      <label>Show interstitial ad every N connects</label>
+      <input id="interstitialN" type="number" min="1" onchange="saveSettings()">
+      <label style="margin-top:10px">Announcement banner (leave empty to hide)</label>
+      <input id="announcement" type="text" onchange="saveSettings()">
+    </div>
+
+    <div class="card">
+      <h2>Live stats</h2>
+      <div id="statsBox"><div class="stat"><span>Loading...</span></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Add / Edit VPN Server</h2>
+      <div class="row">
+        <div class="field"><label>Server name</label><input id="f_name" placeholder="Germany - Frankfurt"></div>
+        <div class="field"><label>Country code</label><input id="f_country" placeholder="DE"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Endpoint host / IP</label><input id="f_host" placeholder="203.0.113.5"></div>
+        <div class="field"><label>Port</label><input id="f_port" type="number" value="51820"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Server public key</label><input id="f_serverpub"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Client private key (for this server)</label><input id="f_clientpriv"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Client address</label><input id="f_clientaddr" placeholder="10.8.0.2/32"></div>
+        <div class="field"><label>DNS</label><input id="f_dns" value="1.1.1.1"></div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Server load %</label>
+          <input id="f_load" type="number" min="0" max="100" value="10">
+        </div>
+        <div class="field">
+          <label>Premium (behind ad)</label>
+          <select id="f_premium"><option value="false">No</option><option value="true">Yes</option></select>
+        </div>
+      </div>
+      <button onclick="addServer()">Save Server</button>
+      <input type="hidden" id="f_editId">
+    </div>
+
+    <div class="card">
+      <h2>Servers</h2>
+      <div id="serverListBox"></div>
+    </div>
+
+    <button class="secondary" onclick="logout()">Log out</button>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  // === PASTE YOUR FIREBASE WEB CONFIG HERE (Firebase Console > Project Settings > General > Your apps > Web) ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyA6IQnAkK2z37RvHZadyujbh0GMwvsbeeE",
+    authDomain: "vpn-demo-2063a.firebaseapp.com",
+    projectId: "vpn-demo-2063a",
+    storageBucket: "vpn-demo-2063a.firebasestorage.app",
+    messagingSenderId: "373946968949",
+    appId: "1:373946968949:web:4af440b808c49b4024813c"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  auth.onAuthStateChanged(user => {
+    document.getElementById('loginScreen').style.display = user ? 'none' : 'block';
+    document.getElementById('app').style.display = user ? 'block' : 'none';
+    if (user) { listenServers(); listenSettings(); listenStats(); }
+  });
+
+  function doLogin(){
+    const email = document.getElementById('loginEmail').value;
+    const pass = document.getElementById('loginPass').value;
+    auth.signInWithEmailAndPassword(email, pass).catch(e => alert(e.message));
+  }
+  function logout(){ auth.signOut(); }
+
+  function saveSettings(){
+    db.collection('settings').doc('app').set({
+      adsEnabled: document.getElementById('adsEnabled').checked,
+      maintenanceMode: document.getElementById('maintenanceMode').checked,
+      interstitialEveryNConnects: parseInt(document.getElementById('interstitialN').value || '3'),
+      announcement: document.getElementById('announcement').value
+    }, {merge:true});
+  }
+
+  function listenSettings(){
+    db.collection('settings').doc('app').onSnapshot(doc => {
+      const d = doc.data() || {};
+      document.getElementById('adsEnabled').checked = d.adsEnabled ?? true;
+      document.getElementById('maintenanceMode').checked = d.maintenanceMode ?? false;
+      document.getElementById('interstitialN').value = d.interstitialEveryNConnects ?? 3;
+      document.getElementById('announcement').value = d.announcement ?? '';
+    });
+  }
+
+  function listenStats(){
+    db.collection('activeSessions').onSnapshot(snap => {
+      let total = 0;
+      let rows = '';
+      snap.forEach(doc => {
+        const d = doc.data();
+        total += d.count || 0;
+        rows += `<div class="stat"><span>${doc.id}</span><span>${d.count || 0} connected</span></div>`;
+      });
+      document.getElementById('statsBox').innerHTML =
+        `<div class="stat"><b>Total active connections</b><b>${total}</b></div>` + rows;
+    });
+  }
+
+  function addServer(){
+    const editId = document.getElementById('f_editId').value;
+    const data = {
+      name: document.getElementById('f_name').value,
+      countryCode: document.getElementById('f_country').value,
+      endpointHost: document.getElementById('f_host').value,
+      endpointPort: parseInt(document.getElementById('f_port').value || '51820'),
+      serverPublicKey: document.getElementById('f_serverpub').value,
+      clientPrivateKey: document.getElementById('f_clientpriv').value,
+      clientAddress: document.getElementById('f_clientaddr').value,
+      dns: document.getElementById('f_dns').value || '1.1.1.1',
+      allowedIps: '0.0.0.0/0',
+      load: parseInt(document.getElementById('f_load').value || '0'),
+      isPremium: document.getElementById('f_premium').value === 'true',
+      isEnabled: true
+    };
+    const ref = editId ? db.collection('servers').doc(editId) : db.collection('servers').doc();
+    ref.set(data, {merge:true}).then(() => {
+      document.getElementById('f_editId').value = '';
+      ['f_name','f_country','f_host','f_serverpub','f_clientpriv','f_clientaddr'].forEach(id => document.getElementById(id).value='');
+      alert('Server saved');
+    });
+  }
+
+  function editServer(id, d){
+    document.getElementById('f_editId').value = id;
+    document.getElementById('f_name').value = d.name || '';
+    document.getElementById('f_country').value = d.countryCode || '';
+    document.getElementById('f_host').value = d.endpointHost || '';
+    document.getElementById('f_port').value = d.endpointPort || 51820;
+    document.getElementById('f_serverpub').value = d.serverPublicKey || '';
+    document.getElementById('f_clientpriv').value = d.clientPrivateKey || '';
+    document.getElementById('f_clientaddr').value = d.clientAddress || '';
+    document.getElementById('f_dns').value = d.dns || '1.1.1.1';
+    document.getElementById('f_load').value = d.load ?? 10;
+    document.getElementById('f_premium').value = d.isPremium ? 'true' : 'false';
+    window.scrollTo(0,0);
+  }
+
+  function toggleServer(id, enabled){
+    db.collection('servers').doc(id).set({isEnabled: !enabled}, {merge:true});
+  }
+
+  function deleteServer(id){
+    if (confirm('Delete this server?')) db.collection('servers').doc(id).delete();
+  }
+
+  function listenServers(){
+    db.collection('servers').onSnapshot(snap => {
+      let html = '';
+      snap.forEach(doc => {
+        const d = doc.data();
+        html += `
+          <div class="server-item">
+            <div class="info">
+              <b>${d.name || '(unnamed)'} ${d.isPremium ? '<span class="badge">PRO</span>' : ''} ${!d.isEnabled ? '<span class="badge" style="background:#FF4757">OFF</span>' : ''}</b>
+              <span>${d.countryCode || ''} · ${d.endpointHost || ''}:${d.endpointPort || ''} · load ${d.load ?? 0}%</span>
+            </div>
+            <div class="actions">
+              <button class="secondary" onclick='editServer("${doc.id}", ${JSON.stringify(d).replace(/'/g,"&#39;")})'>Edit</button>
+              <button class="secondary" onclick="toggleServer('${doc.id}', ${!!d.isEnabled})">${d.isEnabled ? 'Disable' : 'Enable'}</button>
+              <button class="danger" onclick="deleteServer('${doc.id}')">Del</button>
+            </div>
+          </div>`;
+      });
+      document.getElementById('serverListBox').innerHTML = html || '<p class="muted">No servers yet.</p>';
+    });
+  }
+</script>
+</body>
+</html>
